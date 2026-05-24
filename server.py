@@ -1,26 +1,25 @@
 from flask import Flask, request
-import requests
 from datetime import datetime
 
 app = Flask(__name__)
 
 # =====================================
-# DEVICE STORAGE
+# DEVICES
 # =====================================
 
 devices = {}
 
 # =====================================
-# DEVICE STATUS
-# =====================================
-
-device_status = {}
-
-# =====================================
-# EVENT LOGS
+# LOGS
 # =====================================
 
 logs = []
+
+# =====================================
+# COMMAND STORAGE
+# =====================================
+
+commands = {}
 
 # =====================================
 # HOME PAGE
@@ -47,58 +46,27 @@ def home():
 
     <h1 style='text-align:center;'>
 
-    Central IoT Hub 😄🔥
+    Cloud IoT Dashboard 😄🔥
 
     </h1>
 
     <hr>
 
-    <h2>Connected Devices</h2>
-
     """
 
-    # Poll Devices
-    for device_id, ip in devices.items():
-
-        try:
-
-            response = requests.get(
-                f"http://{ip}/status",
-                timeout=1
-            )
-
-            device_status[device_id] = (
-                response.text
-            )
-
-        except:
-
-            device_status[device_id] = (
-                "OFFLINE 😭"
-            )
-
-    # Show Devices
-    for device_id, ip in devices.items():
-
-        status = device_status.get(
-            device_id,
-            "UNKNOWN"
-        )
+    # SHOW DEVICES
+    for device_id in devices:
 
         html += f"""
 
         <div style='background:#222;
                     padding:20px;
-                    margin-bottom:15px;
+                    margin-bottom:20px;
                     border-radius:10px;'>
 
         <h2>{device_id}</h2>
 
-        <p>IP : {ip}</p>
-
-        <h3>Status : {status}</h3>
-
-        <a href='/blink/{device_id}'>
+        <a href='/sendBlink/{device_id}'>
 
         <button style='padding:15px;
                        font-size:20px;'>
@@ -117,7 +85,7 @@ def home():
 
     <hr>
 
-    <h2>Event Logs</h2>
+    <h2>EVENT LOGS</h2>
 
     """
 
@@ -158,20 +126,21 @@ def register():
         "device_id"
     )
 
-    ip = request.args.get(
-        "ip"
+    devices[device_id] = True
+
+    current_time = datetime.now().strftime(
+        "%I:%M:%S %p"
     )
 
-    devices[device_id] = ip
-
-    print(
-        f"{device_id} REGISTERED 😄"
+    logs.append(
+        f"{device_id} CONNECTED 😄"
+        f" — {current_time}"
     )
 
     return "REGISTERED"
 
 # =====================================
-# BUTTON PRESS EVENT
+# BUTTON EVENT
 # =====================================
 
 @app.route("/button")
@@ -185,46 +154,30 @@ def button():
         "%I:%M:%S %p"
     )
 
-    log = (
-        f"{device_id} BUTTON PRESSED 😄"
+    logs.append(
+        f"{device_id} BUTTON PRESSED 😎"
         f" — {current_time}"
     )
-
-    logs.append(log)
-
-    print(log)
 
     return "OK"
 
 # =====================================
-# BLINK DEVICE
+# SEND BLINK COMMAND
 # =====================================
 
-@app.route("/blink/<device_id>")
-def blink(device_id):
+@app.route("/sendBlink/<device_id>")
+def sendBlink(device_id):
 
-    try:
+    commands[device_id] = "BLINK"
 
-        ip = devices[device_id]
+    current_time = datetime.now().strftime(
+        "%I:%M:%S %p"
+    )
 
-        requests.get(
-            f"http://{ip}/blink"
-        )
-
-        current_time = datetime.now().strftime(
-            "%I:%M:%S %p"
-        )
-
-        logs.append(
-            f"{device_id} BLINK COMMAND 😎"
-            f" — {current_time}"
-        )
-
-    except:
-
-        logs.append(
-            f"{device_id} OFFLINE 😭"
-        )
+    logs.append(
+        f"{device_id} BLINK COMMAND SENT 🔥"
+        f" — {current_time}"
+    )
 
     return """
 
@@ -237,11 +190,45 @@ def blink(device_id):
     """
 
 # =====================================
-# RUN SERVER
+# GET COMMAND
 # =====================================
 
-app.run(
-    host="0.0.0.0",
-    port=5000,
-    debug=True
-)
+@app.route("/getCommand")
+def getCommand():
+
+    device_id = request.args.get(
+        "device_id"
+    )
+
+    command = commands.get(
+        device_id,
+        "NONE"
+    )
+
+    return command
+
+# =====================================
+# CLEAR COMMAND
+# =====================================
+
+@app.route("/clearCommand")
+def clearCommand():
+
+    device_id = request.args.get(
+        "device_id"
+    )
+
+    commands[device_id] = "NONE"
+
+    return "CLEARED"
+
+# =====================================
+# RUN
+# =====================================
+
+if __name__ == "__main__":
+
+    app.run(
+        host="0.0.0.0",
+        port=5000
+    )
